@@ -3,12 +3,12 @@ import uuid
 from typing import Set
 
 from django.db import models
-from django.db.models import F, Q, Sum
+from django.db.models import F, Sum
 from django.db.models.functions import Coalesce
 
 from ..account.models import Address
 from ..order.models import OrderLine
-from ..product.models import ProductVariant
+from ..product.models import Product, ProductVariant
 from ..shipping.models import ShippingZone
 
 
@@ -64,8 +64,7 @@ class StockQuerySet(models.QuerySet):
     def for_country(self, country_code: str):
         query_warehouse = models.Subquery(
             Warehouse.objects.filter(
-                Q(shipping_zones__countries__contains=country_code)
-                | Q(shipping_zones__default=True)
+                shipping_zones__countries__contains=country_code
             ).values("pk")
         )
         return self.select_related("product_variant", "warehouse").filter(
@@ -80,6 +79,11 @@ class StockQuerySet(models.QuerySet):
         Note it will raise a 'Stock.DoesNotExist' exception if no such stock is found.
         """
         return self.for_country(country_code).filter(product_variant=product_variant)
+
+    def get_product_stocks_for_country(self, country_code: str, product: Product):
+        return self.for_country(country_code).filter(
+            product_variant__product_id=product.pk
+        )
 
 
 class Stock(models.Model):
